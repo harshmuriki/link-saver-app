@@ -7,8 +7,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'LinkSaver - Save links from anywhere',
+  description: 'A simple API-first link saver designed for Apple Shortcuts. Save links with one tap, auto-fetch metadata, and manage everything from a clean dashboard.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -35,8 +35,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">
+    <html lang="en" className="bg-background">
+      <body className="font-sans antialiased bg-background">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

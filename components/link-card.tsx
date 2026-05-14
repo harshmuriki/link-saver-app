@@ -1,0 +1,151 @@
+'use client'
+
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Link } from '@/lib/types'
+import {
+  BookOpen,
+  BookOpenCheck,
+  ExternalLink,
+  Globe,
+  Heart,
+  MoreHorizontal,
+  Star,
+  Trash2,
+} from 'lucide-react'
+import Image from 'next/image'
+
+interface LinkCardProps {
+  link: Link
+  onToggleRead: (id: string, isRead: boolean) => void
+  onToggleFavorite: (id: string, isFavorite: boolean) => void
+  onDelete: (id: string) => void
+}
+
+export function LinkCard({ link, onToggleRead, onToggleFavorite, onDelete }: LinkCardProps) {
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  }
+
+  return (
+    <Card className={`group relative overflow-hidden transition-colors ${link.is_read ? 'opacity-75' : ''}`}>
+      <div className="flex gap-4 p-4">
+        {/* Image/favicon */}
+        <div className="flex-shrink-0">
+          {link.image_url ? (
+            <div className="w-20 h-20 rounded-md overflow-hidden bg-muted">
+              <Image
+                src={link.image_url}
+                alt=""
+                width={80}
+                height={80}
+                className="w-full h-full object-cover"
+                unoptimized
+              />
+            </div>
+          ) : (
+            <div className="w-20 h-20 rounded-md bg-muted flex items-center justify-center">
+              <Globe className="h-8 w-8 text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-foreground hover:text-primary transition-colors line-clamp-1 flex items-center gap-1"
+              >
+                {link.title || link.url}
+                <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-50" />
+              </a>
+              {link.description && (
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  {link.description}
+                </p>
+              )}
+              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                {link.domain && (
+                  <span className="flex items-center gap-1">
+                    <Globe className="h-3 w-3" />
+                    {link.domain}
+                  </span>
+                )}
+                <span>{formatDate(link.created_at)}</span>
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div className="flex items-center gap-1">
+              {link.is_favorite && (
+                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+              )}
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => onToggleRead(link.id, !link.is_read)}>
+                    {link.is_read ? (
+                      <>
+                        <BookOpen className="h-4 w-4 mr-2" />
+                        Mark as unread
+                      </>
+                    ) : (
+                      <>
+                        <BookOpenCheck className="h-4 w-4 mr-2" />
+                        Mark as read
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onToggleFavorite(link.id, !link.is_favorite)}>
+                    {link.is_favorite ? (
+                      <>
+                        <Heart className="h-4 w-4 mr-2" />
+                        Remove from favorites
+                      </>
+                    ) : (
+                      <>
+                        <Star className="h-4 w-4 mr-2" />
+                        Add to favorites
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onDelete(link.id)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Card>
+  )
+}
