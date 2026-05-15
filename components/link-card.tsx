@@ -159,4 +159,4 @@ export const LinkCard = memo(function LinkCard({
       </div>
     </Card>
   )
-}
+})
