@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Link, LinkCategory } from '@/lib/types'
 import {
-  BookOpen,
-  BookOpenCheck,
   ExternalLink,
   Globe,
   Info,
@@ -18,8 +16,6 @@ import { memo, useCallback } from 'react'
 
 interface LinkCardProps {
   link: Link
-  onToggleRead: (id: string, isRead: boolean) => void
-  onToggleFavorite: (id: string, isFavorite: boolean) => void
   onSetCategory: (id: string, category: LinkCategory) => void
   onDelete: (id: string) => void
 }
@@ -27,8 +23,6 @@ interface LinkCardProps {
 // Memoized component to prevent unnecessary re-renders
 export const LinkCard = memo(function LinkCard({ 
   link, 
-  onToggleRead, 
-  onToggleFavorite, 
   onSetCategory,
   onDelete 
 }: LinkCardProps) {
@@ -44,10 +38,6 @@ export const LinkCard = memo(function LinkCard({
   }
 
   // Memoized handlers to prevent recreation on each render
-  const handleToggleRead = useCallback(() => {
-    onToggleRead(link.id, !link.is_read)
-  }, [link.id, link.is_read, onToggleRead])
-
   const handleSetInfo = useCallback(() => {
     onSetCategory(link.id, link.category === 'general_info' ? null : 'general_info')
   }, [link.id, link.category, onSetCategory])
@@ -133,26 +123,6 @@ export const LinkCard = memo(function LinkCard({
       {/* Bottom category controls */}
       <div className="flex items-center justify-between gap-1 px-4 pb-3 pt-0">
         <div className="flex items-center gap-1">
-          {/* Read/Unread toggle */}
-          <Button
-            variant={link.is_read ? "secondary" : "ghost"}
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={handleToggleRead}
-          >
-            {link.is_read ? (
-              <>
-                <BookOpenCheck className="h-3.5 w-3.5 mr-1" />
-                Read
-              </>
-            ) : (
-              <>
-                <BookOpen className="h-3.5 w-3.5 mr-1" />
-                Unread
-              </>
-            )}
-          </Button>
-
           {/* General Info category */}
           <Button
             variant={link.category === 'general_info' ? "secondary" : "ghost"}
