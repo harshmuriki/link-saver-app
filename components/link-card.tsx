@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import Image from 'next/image'
+import { memo, useCallback } from 'react'
 
 interface LinkCardProps {
   link: Link
@@ -23,7 +24,8 @@ interface LinkCardProps {
   onDelete: (id: string) => void
 }
 
-export function LinkCard({ 
+// Memoized component to prevent unnecessary re-renders
+export const LinkCard = memo(function LinkCard({ 
   link, 
   onToggleRead, 
   onToggleFavorite, 
@@ -40,6 +42,23 @@ export function LinkCard({
       minute: '2-digit',
     })
   }
+
+  // Memoized handlers to prevent recreation on each render
+  const handleToggleRead = useCallback(() => {
+    onToggleRead(link.id, !link.is_read)
+  }, [link.id, link.is_read, onToggleRead])
+
+  const handleSetInfo = useCallback(() => {
+    onSetCategory(link.id, link.category === 'general_info' ? null : 'general_info')
+  }, [link.id, link.category, onSetCategory])
+
+  const handleSetTryIt = useCallback(() => {
+    onSetCategory(link.id, link.category === 'try_implementing' ? null : 'try_implementing')
+  }, [link.id, link.category, onSetCategory])
+
+  const handleDelete = useCallback(() => {
+    onDelete(link.id)
+  }, [link.id, onDelete])
 
   return (
     <Card className={`group relative overflow-hidden transition-colors ${link.is_read ? 'opacity-60' : ''}`}>
@@ -119,7 +138,7 @@ export function LinkCard({
             variant={link.is_read ? "secondary" : "ghost"}
             size="sm"
             className="h-7 px-2 text-xs"
-            onClick={() => onToggleRead(link.id, !link.is_read)}
+            onClick={handleToggleRead}
           >
             {link.is_read ? (
               <>
@@ -139,7 +158,7 @@ export function LinkCard({
             variant={link.category === 'general_info' ? "secondary" : "ghost"}
             size="sm"
             className={`h-7 px-2 text-xs ${link.category === 'general_info' ? 'text-blue-400' : ''}`}
-            onClick={() => onSetCategory(link.id, link.category === 'general_info' ? null : 'general_info')}
+            onClick={handleSetInfo}
           >
             <Info className="h-3.5 w-3.5 mr-1" />
             Info
@@ -150,7 +169,7 @@ export function LinkCard({
             variant={link.category === 'try_implementing' ? "secondary" : "ghost"}
             size="sm"
             className={`h-7 px-2 text-xs ${link.category === 'try_implementing' ? 'text-amber-400' : ''}`}
-            onClick={() => onSetCategory(link.id, link.category === 'try_implementing' ? null : 'try_implementing')}
+            onClick={handleSetTryIt}
           >
             <Lightbulb className="h-3.5 w-3.5 mr-1" />
             Try it
@@ -162,7 +181,7 @@ export function LinkCard({
           variant="ghost"
           size="sm"
           className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
-          onClick={() => onDelete(link.id)}
+          onClick={handleDelete}
         >
           <Trash2 className="h-3.5 w-3.5 mr-1" />
           Delete
