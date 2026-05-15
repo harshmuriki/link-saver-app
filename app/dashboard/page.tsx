@@ -94,10 +94,22 @@ export default function DashboardPage() {
   const handleToggleRead = (id: string, isRead: boolean) => {
     if (!apiKey) return
     
+    // If marking as read while filtering for unread, remove from list
+    // If marking as unread while filtering for read, remove from list
+    const shouldRemove = (filter === 'unread' && isRead) || (filter === 'read' && !isRead)
+    
+    // Store link for potential rollback
+    const originalLink = links.find(l => l.id === id)
+    const originalIndex = links.findIndex(l => l.id === id)
+    
     // Optimistic update - instant UI feedback
-    setLinks(prev => prev.map(link => 
-      link.id === id ? { ...link, is_read: isRead } : link
-    ))
+    if (shouldRemove) {
+      setLinks(prev => prev.filter(link => link.id !== id))
+    } else {
+      setLinks(prev => prev.map(link => 
+        link.id === id ? { ...link, is_read: isRead } : link
+      ))
+    }
     
     // Background API call
     const method = isRead ? 'POST' : 'DELETE'
@@ -105,9 +117,17 @@ export default function DashboardPage() {
       .then(() => fetchStats())
       .catch(() => {
         // Revert on error
-        setLinks(prev => prev.map(link => 
-          link.id === id ? { ...link, is_read: !isRead } : link
-        ))
+        if (shouldRemove && originalLink) {
+          setLinks(prev => {
+            const newLinks = [...prev]
+            newLinks.splice(originalIndex, 0, originalLink)
+            return newLinks
+          })
+        } else {
+          setLinks(prev => prev.map(link => 
+            link.id === id ? { ...link, is_read: !isRead } : link
+          ))
+        }
       })
   }
 
