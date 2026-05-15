@@ -42,6 +42,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     title?: string
     is_read?: boolean
     is_favorite?: boolean
+    category?: 'general_info' | 'try_implementing' | null
   }
   
   try {
@@ -58,6 +59,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (body.title !== undefined) updates.title = body.title
   if (body.is_read !== undefined) updates.is_read = body.is_read
   if (body.is_favorite !== undefined) updates.is_favorite = body.is_favorite
+  if (body.category !== undefined) updates.category = body.category
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(

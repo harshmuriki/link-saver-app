@@ -6,7 +6,7 @@ import { StatsCards } from '@/components/stats-cards'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/client'
-import { Link, LinkStats, PaginatedResponse } from '@/lib/types'
+import { Link, LinkCategory, LinkStats, PaginatedResponse } from '@/lib/types'
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -63,6 +63,8 @@ export default function DashboardPage() {
     if (filter === 'unread') params.set('is_read', 'false')
     if (filter === 'read') params.set('is_read', 'true')
     if (filter === 'favorites') params.set('is_favorite', 'true')
+    if (filter === 'general_info') params.set('category', 'general_info')
+    if (filter === 'try_implementing') params.set('category', 'try_implementing')
 
     try {
       const res = await fetch(`/api/links?${params}`)
@@ -115,6 +117,23 @@ export default function DashboardPage() {
         link.id === id ? { ...link, is_favorite: isFavorite } : link
       ))
       fetchStats()
+    } catch {
+      // Handle error
+    }
+  }
+
+  const handleSetCategory = async (id: string, category: LinkCategory) => {
+    if (!apiKey) return
+    
+    try {
+      await fetch(`/api/links/${id}?api_key=${apiKey}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category })
+      })
+      setLinks(links.map(link => 
+        link.id === id ? { ...link, category } : link
+      ))
     } catch {
       // Handle error
     }
@@ -190,6 +209,7 @@ export default function DashboardPage() {
                 link={link}
                 onToggleRead={handleToggleRead}
                 onToggleFavorite={handleToggleFavorite}
+                onSetCategory={handleSetCategory}
                 onDelete={handleDelete}
               />
             ))}
