@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Link, LinkCategory } from '@/lib/types'
 import {
+  BookOpenCheck,
   ExternalLink,
   Globe,
   Info,
@@ -16,6 +17,7 @@ import { memo, useCallback } from 'react'
 
 interface LinkCardProps {
   link: Link
+  onToggleRead: (id: string, isRead: boolean) => void
   onSetCategory: (id: string, category: LinkCategory) => void
   onDelete: (id: string) => void
 }
@@ -23,6 +25,7 @@ interface LinkCardProps {
 // Memoized component to prevent unnecessary re-renders
 export const LinkCard = memo(function LinkCard({ 
   link, 
+  onToggleRead,
   onSetCategory,
   onDelete 
 }: LinkCardProps) {
@@ -38,6 +41,13 @@ export const LinkCard = memo(function LinkCard({
   }
 
   // Memoized handlers to prevent recreation on each render
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    // Don't toggle if clicking on buttons, links, or interactive elements
+    const target = e.target as HTMLElement
+    if (target.closest('button') || target.closest('a')) return
+    onToggleRead(link.id, !link.is_read)
+  }, [link.id, link.is_read, onToggleRead])
+
   const handleSetInfo = useCallback(() => {
     onSetCategory(link.id, link.category === 'general_info' ? null : 'general_info')
   }, [link.id, link.category, onSetCategory])
@@ -51,7 +61,10 @@ export const LinkCard = memo(function LinkCard({
   }, [link.id, onDelete])
 
   return (
-    <Card className={`group relative overflow-hidden transition-colors ${link.is_read ? 'opacity-60' : ''}`}>
+    <Card 
+      className={`group relative overflow-hidden transition-all duration-150 cursor-pointer hover:ring-1 hover:ring-primary/30 ${link.is_read ? 'opacity-50 bg-muted/30' : ''}`}
+      onClick={handleCardClick}
+    >
       <div className="flex gap-4 p-4">
         {/* Image/favicon */}
         <div className="flex-shrink-0">
@@ -92,6 +105,12 @@ export const LinkCard = memo(function LinkCard({
                 </p>
               )}
               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                {link.is_read && (
+                  <span className="inline-flex items-center gap-1 text-green-500">
+                    <BookOpenCheck className="h-3 w-3" />
+                    Read
+                  </span>
+                )}
                 {link.domain && (
                   <span className="flex items-center gap-1">
                     <Globe className="h-3 w-3" />

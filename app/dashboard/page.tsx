@@ -91,6 +91,26 @@ export default function DashboardPage() {
     }
   }, [apiKey, fetchLinks, fetchStats])
 
+  const handleToggleRead = (id: string, isRead: boolean) => {
+    if (!apiKey) return
+    
+    // Optimistic update - instant UI feedback
+    setLinks(prev => prev.map(link => 
+      link.id === id ? { ...link, is_read: isRead } : link
+    ))
+    
+    // Background API call
+    const method = isRead ? 'POST' : 'DELETE'
+    fetch(`/api/links/${id}/read?api_key=${apiKey}`, { method })
+      .then(() => fetchStats())
+      .catch(() => {
+        // Revert on error
+        setLinks(prev => prev.map(link => 
+          link.id === id ? { ...link, is_read: !isRead } : link
+        ))
+      })
+  }
+
   const handleSetCategory = (id: string, category: LinkCategory) => {
     if (!apiKey) return
     
@@ -196,6 +216,7 @@ export default function DashboardPage() {
               <LinkCard
                 key={link.id}
                 link={link}
+                onToggleRead={handleToggleRead}
                 onSetCategory={handleSetCategory}
                 onDelete={handleDelete}
               />
