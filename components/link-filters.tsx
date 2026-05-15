@@ -62,6 +62,8 @@ export function LinkFilters({
             <SelectItem value="unread">Unread</SelectItem>
             <SelectItem value="read">Read</SelectItem>
             <SelectItem value="favorites">Favorites</SelectItem>
+            <SelectItem value="general_info">Info Links</SelectItem>
+            <SelectItem value="try_implementing">Try It Links</SelectItem>
           </SelectContent>
         </Select>
 

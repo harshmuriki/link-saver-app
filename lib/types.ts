@@ -1,3 +1,5 @@
+export type LinkCategory = 'general_info' | 'try_implementing' | null
+
 export interface Link {
   id: string
   user_id: string
@@ -8,6 +10,7 @@ export interface Link {
   domain: string | null
   is_read: boolean
   is_favorite: boolean
+  category: LinkCategory
   created_at: string
   updated_at: string
 }

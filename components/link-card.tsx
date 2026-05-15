@@ -2,34 +2,33 @@
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Link, LinkCategory } from '@/lib/types'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Link } from '@/lib/types'
-import {
-  BookOpen,
   BookOpenCheck,
   ExternalLink,
   Globe,
-  Heart,
-  MoreHorizontal,
+  Info,
+  Lightbulb,
   Star,
   Trash2,
 } from 'lucide-react'
 import Image from 'next/image'
+import { memo, useCallback } from 'react'
 
 interface LinkCardProps {
   link: Link
   onToggleRead: (id: string, isRead: boolean) => void
-  onToggleFavorite: (id: string, isFavorite: boolean) => void
+  onSetCategory: (id: string, category: LinkCategory) => void
   onDelete: (id: string) => void
 }
 
-export function LinkCard({ link, onToggleRead, onToggleFavorite, onDelete }: LinkCardProps) {
+// Memoized component to prevent unnecessary re-renders
+export const LinkCard = memo(function LinkCard({ 
+  link, 
+  onToggleRead,
+  onSetCategory,
+  onDelete 
+}: LinkCardProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -41,8 +40,31 @@ export function LinkCard({ link, onToggleRead, onToggleFavorite, onDelete }: Lin
     })
   }
 
+  // Memoized handlers to prevent recreation on each render
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    // Don't toggle if clicking on buttons, links, or interactive elements
+    const target = e.target as HTMLElement
+    if (target.closest('button') || target.closest('a')) return
+    onToggleRead(link.id, !link.is_read)
+  }, [link.id, link.is_read, onToggleRead])
+
+  const handleSetInfo = useCallback(() => {
+    onSetCategory(link.id, link.category === 'general_info' ? null : 'general_info')
+  }, [link.id, link.category, onSetCategory])
+
+  const handleSetTryIt = useCallback(() => {
+    onSetCategory(link.id, link.category === 'try_implementing' ? null : 'try_implementing')
+  }, [link.id, link.category, onSetCategory])
+
+  const handleDelete = useCallback(() => {
+    onDelete(link.id)
+  }, [link.id, onDelete])
+
   return (
-    <Card className={`group relative overflow-hidden transition-colors ${link.is_read ? 'opacity-75' : ''}`}>
+    <Card 
+      className={`group relative overflow-hidden transition-all duration-150 cursor-pointer hover:ring-1 hover:ring-primary/30 ${link.is_read ? 'opacity-50 bg-muted/30' : ''}`}
+      onClick={handleCardClick}
+    >
       <div className="flex gap-4 p-4">
         {/* Image/favicon */}
         <div className="flex-shrink-0">
@@ -83,6 +105,12 @@ export function LinkCard({ link, onToggleRead, onToggleFavorite, onDelete }: Lin
                 </p>
               )}
               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                {link.is_read && (
+                  <span className="inline-flex items-center gap-1 text-green-500">
+                    <BookOpenCheck className="h-3 w-3" />
+                    Read
+                  </span>
+                )}
                 {link.domain && (
                   <span className="flex items-center gap-1">
                     <Globe className="h-3 w-3" />
@@ -90,62 +118,64 @@ export function LinkCard({ link, onToggleRead, onToggleFavorite, onDelete }: Lin
                   </span>
                 )}
                 <span>{formatDate(link.created_at)}</span>
+                {link.is_favorite && (
+                  <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                )}
+                {link.category === 'general_info' && (
+                  <span className="inline-flex items-center gap-1 text-blue-400">
+                    <Info className="h-3 w-3" />
+                    Info
+                  </span>
+                )}
+                {link.category === 'try_implementing' && (
+                  <span className="inline-flex items-center gap-1 text-amber-400">
+                    <Lightbulb className="h-3 w-3" />
+                    Try it
+                  </span>
+                )}
               </div>
-            </div>
-
-            {/* Quick actions */}
-            <div className="flex items-center gap-1">
-              {link.is_favorite && (
-                <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-              )}
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onToggleRead(link.id, !link.is_read)}>
-                    {link.is_read ? (
-                      <>
-                        <BookOpen className="h-4 w-4 mr-2" />
-                        Mark as unread
-                      </>
-                    ) : (
-                      <>
-                        <BookOpenCheck className="h-4 w-4 mr-2" />
-                        Mark as read
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onToggleFavorite(link.id, !link.is_favorite)}>
-                    {link.is_favorite ? (
-                      <>
-                        <Heart className="h-4 w-4 mr-2" />
-                        Remove from favorites
-                      </>
-                    ) : (
-                      <>
-                        <Star className="h-4 w-4 mr-2" />
-                        Add to favorites
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onDelete(link.id)}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Bottom category controls */}
+      <div className="flex items-center justify-between gap-1 px-4 pb-3 pt-0">
+        <div className="flex items-center gap-1">
+          {/* General Info category */}
+          <Button
+            variant={link.category === 'general_info' ? "secondary" : "ghost"}
+            size="sm"
+            className={`h-7 px-2 text-xs ${link.category === 'general_info' ? 'text-blue-400' : ''}`}
+            onClick={handleSetInfo}
+          >
+            <Info className="h-3.5 w-3.5 mr-1" />
+            Info
+          </Button>
+
+          {/* Try Implementing category */}
+          <Button
+            variant={link.category === 'try_implementing' ? "secondary" : "ghost"}
+            size="sm"
+            className={`h-7 px-2 text-xs ${link.category === 'try_implementing' ? 'text-amber-400' : ''}`}
+            onClick={handleSetTryIt}
+          >
+            <Lightbulb className="h-3.5 w-3.5 mr-1" />
+            Try it
+          </Button>
+        </div>
+
+        {/* Delete button on the right */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+          onClick={handleDelete}
+        >
+          <Trash2 className="h-3.5 w-3.5 mr-1" />
+          Delete
+        </Button>
+      </div>
     </Card>
   )
-}
+})

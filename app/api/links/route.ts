@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   // Filtering
   const isRead = searchParams.get('is_read')
   const isFavorite = searchParams.get('is_favorite')
+  const category = searchParams.get('category')
   const domain = searchParams.get('domain')
   const search = searchParams.get('search')
   const from = searchParams.get('from')
@@ -45,6 +46,9 @@ export async function GET(request: NextRequest) {
   }
   if (isFavorite !== null && isFavorite !== undefined) {
     query = query.eq('is_favorite', isFavorite === 'true')
+  }
+  if (category) {
+    query = query.eq('category', category)
   }
   if (domain) {
     query = query.eq('domain', domain)

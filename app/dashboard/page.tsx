@@ -6,7 +6,7 @@ import { StatsCards } from '@/components/stats-cards'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/client'
-import { Link, LinkStats, PaginatedResponse } from '@/lib/types'
+import { Link, LinkCategory, LinkStats, PaginatedResponse } from '@/lib/types'
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -63,6 +63,8 @@ export default function DashboardPage() {
     if (filter === 'unread') params.set('is_read', 'false')
     if (filter === 'read') params.set('is_read', 'true')
     if (filter === 'favorites') params.set('is_favorite', 'true')
+    if (filter === 'general_info') params.set('category', 'general_info')
+    if (filter === 'try_implementing') params.set('category', 'try_implementing')
 
     try {
       const res = await fetch(`/api/links?${params}`)
@@ -89,47 +91,93 @@ export default function DashboardPage() {
     }
   }, [apiKey, fetchLinks, fetchStats])
 
-  const handleToggleRead = async (id: string, isRead: boolean) => {
+  const handleToggleRead = (id: string, isRead: boolean) => {
     if (!apiKey) return
-    const endpoint = isRead ? 'read' : 'read'
-    const method = isRead ? 'POST' : 'DELETE'
     
-    try {
-      await fetch(`/api/links/${id}/read?api_key=${apiKey}`, { method })
-      setLinks(links.map(link => 
+    // If marking as read while filtering for unread, remove from list
+    // If marking as unread while filtering for read, remove from list
+    const shouldRemove = (filter === 'unread' && isRead) || (filter === 'read' && !isRead)
+    
+    // Store link for potential rollback
+    const originalLink = links.find(l => l.id === id)
+    const originalIndex = links.findIndex(l => l.id === id)
+    
+    // Optimistic update - instant UI feedback
+    if (shouldRemove) {
+      setLinks(prev => prev.filter(link => link.id !== id))
+    } else {
+      setLinks(prev => prev.map(link => 
         link.id === id ? { ...link, is_read: isRead } : link
       ))
-      fetchStats()
-    } catch {
-      // Handle error
     }
+    
+    // Background API call
+    const method = isRead ? 'POST' : 'DELETE'
+    fetch(`/api/links/${id}/read?api_key=${apiKey}`, { method })
+      .then(() => fetchStats())
+      .catch(() => {
+        // Revert on error
+        if (shouldRemove && originalLink) {
+          setLinks(prev => {
+            const newLinks = [...prev]
+            newLinks.splice(originalIndex, 0, originalLink)
+            return newLinks
+          })
+        } else {
+          setLinks(prev => prev.map(link => 
+            link.id === id ? { ...link, is_read: !isRead } : link
+          ))
+        }
+      })
   }
 
-  const handleToggleFavorite = async (id: string, isFavorite: boolean) => {
+  const handleSetCategory = (id: string, category: LinkCategory) => {
     if (!apiKey) return
-    const method = isFavorite ? 'POST' : 'DELETE'
     
-    try {
-      await fetch(`/api/links/${id}/favorite?api_key=${apiKey}`, { method })
-      setLinks(links.map(link => 
-        link.id === id ? { ...link, is_favorite: isFavorite } : link
+    // Store previous category for rollback
+    const prevCategory = links.find(l => l.id === id)?.category
+    
+    // Optimistic update - instant UI feedback
+    setLinks(prev => prev.map(link => 
+      link.id === id ? { ...link, category } : link
+    ))
+    
+    // Background API call
+    fetch(`/api/links/${id}?api_key=${apiKey}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ category })
+    }).catch(() => {
+      // Revert on error
+      setLinks(prev => prev.map(link => 
+        link.id === id ? { ...link, category: prevCategory } : link
       ))
-      fetchStats()
-    } catch {
-      // Handle error
-    }
+    })
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!apiKey) return
     
-    try {
-      await fetch(`/api/links/${id}?api_key=${apiKey}`, { method: 'DELETE' })
-      setLinks(links.filter(link => link.id !== id))
-      fetchStats()
-    } catch {
-      // Handle error
-    }
+    // Store link for potential rollback
+    const deletedLink = links.find(l => l.id === id)
+    const deletedIndex = links.findIndex(l => l.id === id)
+    
+    // Optimistic update - instant UI feedback
+    setLinks(prev => prev.filter(link => link.id !== id))
+    
+    // Background API call
+    fetch(`/api/links/${id}?api_key=${apiKey}`, { method: 'DELETE' })
+      .then(() => fetchStats())
+      .catch(() => {
+        // Revert on error - restore deleted link at original position
+        if (deletedLink) {
+          setLinks(prev => {
+            const newLinks = [...prev]
+            newLinks.splice(deletedIndex, 0, deletedLink)
+            return newLinks
+          })
+        }
+      })
   }
 
   const handleExport = async (format: 'json' | 'csv' | 'html') => {
@@ -189,7 +237,7 @@ export default function DashboardPage() {
                 key={link.id}
                 link={link}
                 onToggleRead={handleToggleRead}
-                onToggleFavorite={handleToggleFavorite}
+                onSetCategory={handleSetCategory}
                 onDelete={handleDelete}
               />
             ))}
