@@ -2,61 +2,33 @@
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Input } from '@/components/ui/input'
-import { Category, Link, LinkCategory } from '@/lib/types'
+import { Link, LinkCategory } from '@/lib/types'
 import {
   BookOpenCheck,
-  Check,
   ExternalLink,
   Globe,
   Info,
   Lightbulb,
-  Plus,
   Star,
-  Tag,
   Trash2,
-  X,
 } from 'lucide-react'
 import Image from 'next/image'
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback } from 'react'
 
 interface LinkCardProps {
   link: Link
-  categories: Category[]
   onToggleRead: (id: string, isRead: boolean) => void
   onSetCategory: (id: string, category: LinkCategory) => void
   onDelete: (id: string) => void
-  onAddCategory: (name: string) => Promise<Category | null>
-}
-
-const getCategoryIcon = (icon: string) => {
-  switch (icon) {
-    case 'info': return Info
-    case 'lightbulb': return Lightbulb
-    default: return Tag
-  }
 }
 
 // Memoized component to prevent unnecessary re-renders
 export const LinkCard = memo(function LinkCard({ 
   link, 
-  categories,
   onToggleRead,
   onSetCategory,
-  onDelete,
-  onAddCategory,
+  onDelete 
 }: LinkCardProps) {
-  const [isAddingCategory, setIsAddingCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -72,34 +44,21 @@ export const LinkCard = memo(function LinkCard({
   const handleCardClick = useCallback((e: React.MouseEvent) => {
     // Don't toggle if clicking on buttons, links, or interactive elements
     const target = e.target as HTMLElement
-    if (target.closest('button') || target.closest('a') || target.closest('[role="menu"]') || target.closest('input')) return
+    if (target.closest('button') || target.closest('a')) return
     onToggleRead(link.id, !link.is_read)
   }, [link.id, link.is_read, onToggleRead])
 
-  const handleSetCategory = useCallback((slug: string | null) => {
-    onSetCategory(link.id, slug === link.category ? null : slug)
+  const handleSetInfo = useCallback(() => {
+    onSetCategory(link.id, link.category === 'general_info' ? null : 'general_info')
+  }, [link.id, link.category, onSetCategory])
+
+  const handleSetTryIt = useCallback(() => {
+    onSetCategory(link.id, link.category === 'try_implementing' ? null : 'try_implementing')
   }, [link.id, link.category, onSetCategory])
 
   const handleDelete = useCallback(() => {
     onDelete(link.id)
   }, [link.id, onDelete])
-
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim() || isSubmitting) return
-    
-    setIsSubmitting(true)
-    const category = await onAddCategory(newCategoryName.trim())
-    setIsSubmitting(false)
-    
-    if (category) {
-      onSetCategory(link.id, category.slug)
-      setNewCategoryName('')
-      setIsAddingCategory(false)
-    }
-  }
-
-  const currentCategory = categories.find(c => c.slug === link.category)
-  const CurrentIcon = currentCategory ? getCategoryIcon(currentCategory.icon) : Tag
 
   return (
     <Card 
@@ -162,13 +121,16 @@ export const LinkCard = memo(function LinkCard({
                 {link.is_favorite && (
                   <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
                 )}
-                {currentCategory && (
-                  <span 
-                    className="inline-flex items-center gap-1"
-                    style={{ color: currentCategory.color }}
-                  >
-                    <CurrentIcon className="h-3 w-3" />
-                    {currentCategory.name}
+                {link.category === 'general_info' && (
+                  <span className="inline-flex items-center gap-1 text-blue-400">
+                    <Info className="h-3 w-3" />
+                    Info
+                  </span>
+                )}
+                {link.category === 'try_implementing' && (
+                  <span className="inline-flex items-center gap-1 text-amber-400">
+                    <Lightbulb className="h-3 w-3" />
+                    Try it
                   </span>
                 )}
               </div>
@@ -180,88 +142,27 @@ export const LinkCard = memo(function LinkCard({
       {/* Bottom category controls */}
       <div className="flex items-center justify-between gap-1 px-4 pb-3 pt-0">
         <div className="flex items-center gap-1">
-          {/* Category Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant={link.category ? "secondary" : "ghost"}
-                size="sm"
-                className="h-7 px-2 text-xs"
-                style={currentCategory ? { color: currentCategory.color } : undefined}
-              >
-                <CurrentIcon className="h-3.5 w-3.5 mr-1" />
-                {currentCategory ? currentCategory.name : 'Category'}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-48">
-              {/* Clear category option */}
-              {link.category && (
-                <>
-                  <DropdownMenuItem onClick={() => handleSetCategory(null)}>
-                    <X className="h-4 w-4 mr-2" />
-                    Clear category
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              
-              {/* Existing categories */}
-              {categories.map((cat) => {
-                const CatIcon = getCategoryIcon(cat.icon)
-                const isSelected = link.category === cat.slug
-                return (
-                  <DropdownMenuItem 
-                    key={cat.id} 
-                    onClick={() => handleSetCategory(cat.slug)}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="flex items-center" style={{ color: cat.color }}>
-                      <CatIcon className="h-4 w-4 mr-2" />
-                      {cat.name}
-                    </span>
-                    {isSelected && <Check className="h-4 w-4" />}
-                  </DropdownMenuItem>
-                )
-              })}
-              
-              <DropdownMenuSeparator />
-              
-              {/* Add new category */}
-              {isAddingCategory ? (
-                <div className="p-2">
-                  <div className="flex gap-1">
-                    <Input
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="Category name"
-                      className="h-7 text-xs"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAddCategory()
-                        if (e.key === 'Escape') {
-                          setIsAddingCategory(false)
-                          setNewCategoryName('')
-                        }
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      className="h-7 px-2"
-                      onClick={handleAddCategory}
-                      disabled={!newCategoryName.trim() || isSubmitting}
-                    >
-                      <Check className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <DropdownMenuItem onClick={() => setIsAddingCategory(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add category
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* General Info category */}
+          <Button
+            variant={link.category === 'general_info' ? "secondary" : "ghost"}
+            size="sm"
+            className={`h-7 px-2 text-xs ${link.category === 'general_info' ? 'text-blue-400' : ''}`}
+            onClick={handleSetInfo}
+          >
+            <Info className="h-3.5 w-3.5 mr-1" />
+            Info
+          </Button>
+
+          {/* Try Implementing category */}
+          <Button
+            variant={link.category === 'try_implementing' ? "secondary" : "ghost"}
+            size="sm"
+            className={`h-7 px-2 text-xs ${link.category === 'try_implementing' ? 'text-amber-400' : ''}`}
+            onClick={handleSetTryIt}
+          >
+            <Lightbulb className="h-3.5 w-3.5 mr-1" />
+            Try it
+          </Button>
         </div>
 
         {/* Delete button on the right */}

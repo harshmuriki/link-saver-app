@@ -6,11 +6,9 @@ import {
   Select,
   SelectContent,
   SelectItem,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Category } from '@/lib/types'
 import { Download, Search, X } from 'lucide-react'
 
 interface LinkFiltersProps {
@@ -21,7 +19,6 @@ interface LinkFiltersProps {
   sortBy: string
   onSortChange: (value: string) => void
   onExport: (format: 'json' | 'csv' | 'html') => void
-  categories: Category[]
 }
 
 export function LinkFilters({
@@ -32,11 +29,7 @@ export function LinkFilters({
   sortBy,
   onSortChange,
   onExport,
-  categories,
 }: LinkFiltersProps) {
-  // Get custom categories (non-default ones)
-  const customCategories = categories.filter(c => !c.is_default)
-  
   return (
     <div className="flex flex-col sm:flex-row gap-3 mb-6">
       <div className="relative flex-1">
@@ -61,7 +54,7 @@ export function LinkFilters({
 
       <div className="flex gap-2">
         <Select value={filter} onValueChange={onFilterChange}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-32">
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
@@ -69,15 +62,8 @@ export function LinkFilters({
             <SelectItem value="unread">Unread</SelectItem>
             <SelectItem value="read">Read</SelectItem>
             <SelectItem value="favorites">Favorites</SelectItem>
-            <SelectSeparator />
             <SelectItem value="general_info">Info Links</SelectItem>
             <SelectItem value="try_implementing">Try It Links</SelectItem>
-            {customCategories.length > 0 && <SelectSeparator />}
-            {customCategories.map(cat => (
-              <SelectItem key={cat.id} value={cat.slug}>
-                <span style={{ color: cat.color }}>{cat.name}</span>
-              </SelectItem>
-            ))}
           </SelectContent>
         </Select>
 

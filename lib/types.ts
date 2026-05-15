@@ -1,14 +1,4 @@
-export type LinkCategory = string | null
-
-export interface Category {
-  id: string
-  user_id: string
-  name: string
-  slug: string
-  color: string
-  icon: string
-  created_at: string
-}
+export type LinkCategory = 'general_info' | 'try_implementing' | null
 
 export interface Link {
   id: string

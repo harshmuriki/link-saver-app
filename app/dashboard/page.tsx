@@ -6,14 +6,13 @@ import { StatsCards } from '@/components/stats-cards'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createClient } from '@/lib/supabase/client'
-import { Link, LinkCategory, LinkStats, PaginatedResponse, Category } from '@/lib/types'
+import { Link, LinkCategory, LinkStats, PaginatedResponse } from '@/lib/types'
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 export default function DashboardPage() {
   const [links, setLinks] = useState<Link[]>([])
   const [stats, setStats] = useState<LinkStats | null>(null)
-  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -47,19 +46,6 @@ export default function DashboardPage() {
     }
   }, [apiKey])
 
-  const fetchCategories = useCallback(async () => {
-    if (!apiKey) return
-    try {
-      const res = await fetch(`/api/categories?api_key=${apiKey}`)
-      if (res.ok) {
-        const data = await res.json()
-        setCategories(data.categories)
-      }
-    } catch {
-      // Handle error silently
-    }
-  }, [apiKey])
-
   const fetchLinks = useCallback(async () => {
     if (!apiKey) return
     setLoading(true)
@@ -77,10 +63,8 @@ export default function DashboardPage() {
     if (filter === 'unread') params.set('is_read', 'false')
     if (filter === 'read') params.set('is_read', 'true')
     if (filter === 'favorites') params.set('is_favorite', 'true')
-    // Handle category filters (including custom ones)
-    if (!['all', 'unread', 'read', 'favorites'].includes(filter)) {
-      params.set('category', filter)
-    }
+    if (filter === 'general_info') params.set('category', 'general_info')
+    if (filter === 'try_implementing') params.set('category', 'try_implementing')
 
     try {
       const res = await fetch(`/api/links?${params}`)
@@ -104,9 +88,8 @@ export default function DashboardPage() {
     if (apiKey) {
       fetchLinks()
       fetchStats()
-      fetchCategories()
     }
-  }, [apiKey, fetchLinks, fetchStats, fetchCategories])
+  }, [apiKey, fetchLinks, fetchStats])
 
   const handleToggleRead = (id: string, isRead: boolean) => {
     if (!apiKey) return
@@ -197,27 +180,6 @@ export default function DashboardPage() {
       })
   }
 
-  const handleAddCategory = async (name: string): Promise<Category | null> => {
-    if (!apiKey) return null
-    
-    try {
-      const res = await fetch(`/api/categories?api_key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-      })
-      
-      if (res.ok) {
-        const data = await res.json()
-        setCategories(prev => [...prev, data.category])
-        return data.category
-      }
-    } catch {
-      // Handle error silently
-    }
-    return null
-  }
-
   const handleExport = async (format: 'json' | 'csv' | 'html') => {
     if (!apiKey) return
     
@@ -251,7 +213,6 @@ export default function DashboardPage() {
         sortBy={sortBy}
         onSortChange={setSortBy}
         onExport={handleExport}
-        categories={categories}
       />
 
       {loading ? (
@@ -275,11 +236,9 @@ export default function DashboardPage() {
               <LinkCard
                 key={link.id}
                 link={link}
-                categories={categories}
                 onToggleRead={handleToggleRead}
                 onSetCategory={handleSetCategory}
                 onDelete={handleDelete}
-                onAddCategory={handleAddCategory}
               />
             ))}
           </div>
