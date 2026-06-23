@@ -1,4 +1,5 @@
-export type LinkCategory = 'general_info' | 'try_implementing' | null
+/** Stored as a lowercase slug (e.g. general_info, research). Null means uncategorized. */
+export type LinkCategory = string | null
 
 export interface Link {
   id: string

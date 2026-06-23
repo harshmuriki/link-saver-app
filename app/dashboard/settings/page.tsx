@@ -1,5 +1,6 @@
 'use client'
 
+import { SettingsCategoriesCard } from '@/components/settings-categories'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase/client'
@@ -55,7 +56,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="text-muted-foreground">Manage your account settings</p>
+        <p className="text-muted-foreground">Manage your account and categories</p>
       </div>
 
       <Card className="mb-6">
@@ -73,6 +74,8 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <SettingsCategoriesCard />
 
       <Card className="border-destructive/50">
         <CardHeader>

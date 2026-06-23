@@ -2,6 +2,10 @@
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import {
+  categoryLabel,
+  isBuiltinCategorySlug,
+} from '@/lib/categories'
 import { Link, LinkCategory } from '@/lib/types'
 import {
   BookOpenCheck,
@@ -10,6 +14,7 @@ import {
   Info,
   Lightbulb,
   Star,
+  Tag,
   Trash2,
 } from 'lucide-react'
 import Image from 'next/image'
@@ -17,56 +22,66 @@ import { memo, useCallback } from 'react'
 
 interface LinkCardProps {
   link: Link
+  categoryOptions: string[]
   onToggleRead: (id: string, isRead: boolean) => void
   onSetCategory: (id: string, category: LinkCategory) => void
   onDelete: (id: string) => void
 }
 
-// Memoized component to prevent unnecessary re-renders
-export const LinkCard = memo(function LinkCard({ 
-  link, 
+export const LinkCard = memo(function LinkCard({
+  link,
+  categoryOptions,
   onToggleRead,
   onSetCategory,
-  onDelete 
+  onDelete,
 }: LinkCardProps) {
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+      year:
+        date.getFullYear() !== new Date().getFullYear()
+          ? 'numeric'
+          : undefined,
       hour: 'numeric',
       minute: '2-digit',
     })
   }
 
-  // Memoized handlers to prevent recreation on each render
-  const handleCardClick = useCallback((e: React.MouseEvent) => {
-    // Don't toggle if clicking on buttons, links, or interactive elements
-    const target = e.target as HTMLElement
-    if (target.closest('button') || target.closest('a')) return
-    onToggleRead(link.id, !link.is_read)
-  }, [link.id, link.is_read, onToggleRead])
+  const handleCardClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.closest('button') || target.closest('a')) return
+      onToggleRead(link.id, !link.is_read)
+    },
+    [link.id, link.is_read, onToggleRead]
+  )
 
-  const handleSetInfo = useCallback(() => {
-    onSetCategory(link.id, link.category === 'general_info' ? null : 'general_info')
-  }, [link.id, link.category, onSetCategory])
+  const handlePickCategory = useCallback(
+    (slug: LinkCategory) => {
+      onSetCategory(link.id, slug)
+    },
+    [link.id, onSetCategory]
+  )
 
-  const handleSetTryIt = useCallback(() => {
-    onSetCategory(link.id, link.category === 'try_implementing' ? null : 'try_implementing')
-  }, [link.id, link.category, onSetCategory])
+  const toggleOrPick = useCallback(
+    (slug: string) => {
+      onSetCategory(link.id, link.category === slug ? null : slug)
+    },
+    [link.id, link.category, onSetCategory]
+  )
 
   const handleDelete = useCallback(() => {
     onDelete(link.id)
   }, [link.id, onDelete])
 
   return (
-    <Card 
+    <Card
       className={`group relative overflow-hidden transition-all duration-150 cursor-pointer hover:ring-1 hover:ring-primary/30 ${link.is_read ? 'opacity-50 bg-muted/30' : ''}`}
       onClick={handleCardClick}
     >
       <div className="flex gap-4 p-4">
-        {/* Image/favicon */}
         <div className="flex-shrink-0">
           {link.image_url ? (
             <div className="w-20 h-20 rounded-md overflow-hidden bg-muted">
@@ -86,7 +101,6 @@ export const LinkCard = memo(function LinkCard({
           )}
         </div>
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
@@ -104,7 +118,7 @@ export const LinkCard = memo(function LinkCard({
                   {link.description}
                 </p>
               )}
-              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
                 {link.is_read && (
                   <span className="inline-flex items-center gap-1 text-green-500">
                     <BookOpenCheck className="h-3 w-3" />
@@ -133,43 +147,74 @@ export const LinkCard = memo(function LinkCard({
                     Try it
                   </span>
                 )}
+                {link.category &&
+                  !isBuiltinCategorySlug(link.category) &&
+                  link.category.length > 0 && (
+                    <span className="inline-flex items-center gap-1 text-violet-400">
+                      <Tag className="h-3 w-3" />
+                      {categoryLabel(link.category)}
+                    </span>
+                  )}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom category controls */}
-      <div className="flex items-center justify-between gap-1 px-4 pb-3 pt-0">
-        <div className="flex items-center gap-1">
-          {/* General Info category */}
-          <Button
-            variant={link.category === 'general_info' ? "secondary" : "ghost"}
-            size="sm"
-            className={`h-7 px-2 text-xs ${link.category === 'general_info' ? 'text-blue-400' : ''}`}
-            onClick={handleSetInfo}
+      <div
+        className="flex items-center gap-2 px-4 pb-3 pt-0"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">
+          <div
+            className="flex flex-nowrap items-center gap-1 pb-0.5"
+            role="toolbar"
+            aria-label="Categories"
           >
-            <Info className="h-3.5 w-3.5 mr-1" />
-            Info
-          </Button>
-
-          {/* Try Implementing category */}
-          <Button
-            variant={link.category === 'try_implementing' ? "secondary" : "ghost"}
-            size="sm"
-            className={`h-7 px-2 text-xs ${link.category === 'try_implementing' ? 'text-amber-400' : ''}`}
-            onClick={handleSetTryIt}
-          >
-            <Lightbulb className="h-3.5 w-3.5 mr-1" />
-            Try it
-          </Button>
+            <Button
+              type="button"
+              variant={link.category === null ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 shrink-0 px-2 text-xs whitespace-nowrap"
+              onClick={() => handlePickCategory(null)}
+            >
+              None
+            </Button>
+            {categoryOptions.map(slug => (
+              <Button
+                type="button"
+                key={slug}
+                variant={link.category === slug ? 'secondary' : 'ghost'}
+                size="sm"
+                className={`h-7 shrink-0 px-2 text-xs whitespace-nowrap ${
+                  slug === 'general_info'
+                    ? 'text-blue-400'
+                    : slug === 'try_implementing'
+                      ? 'text-amber-400'
+                      : ''
+                }`}
+                onClick={() => toggleOrPick(slug)}
+              >
+                {slug === 'general_info' && (
+                  <Info className="h-3.5 w-3.5 mr-1 shrink-0" />
+                )}
+                {slug === 'try_implementing' && (
+                  <Lightbulb className="h-3.5 w-3.5 mr-1 shrink-0" />
+                )}
+                {slug !== 'general_info' && slug !== 'try_implementing' && (
+                  <Tag className="h-3.5 w-3.5 mr-1 shrink-0 opacity-70" />
+                )}
+                {categoryLabel(slug)}
+              </Button>
+            ))}
+          </div>
         </div>
 
-        {/* Delete button on the right */}
         <Button
+          type="button"
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="h-7 shrink-0 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
           onClick={handleDelete}
         >
           <Trash2 className="h-3.5 w-3.5 mr-1" />

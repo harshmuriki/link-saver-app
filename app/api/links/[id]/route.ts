@@ -1,4 +1,5 @@
 import { authenticateApiRequest } from '@/lib/api-auth'
+import { isValidCategorySlug, slugifyCategory } from '@/lib/categories'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -42,7 +43,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     title?: string
     is_read?: boolean
     is_favorite?: boolean
-    category?: 'general_info' | 'try_implementing' | null
+    category?: string | null
   }
   
   try {
@@ -55,11 +56,32 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   const updates: Record<string, unknown> = {}
-  
+
   if (body.title !== undefined) updates.title = body.title
   if (body.is_read !== undefined) updates.is_read = body.is_read
   if (body.is_favorite !== undefined) updates.is_favorite = body.is_favorite
-  if (body.category !== undefined) updates.category = body.category
+  if (body.category !== undefined) {
+    if (body.category === null) {
+      updates.category = null
+    } else if (typeof body.category === 'string') {
+      const slug = slugifyCategory(body.category)
+      if (!slug || !isValidCategorySlug(slug)) {
+        return NextResponse.json(
+          {
+            error:
+              'Invalid category: use letters, numbers, and underscores (max 64 characters).',
+          },
+          { status: 400 }
+        )
+      }
+      updates.category = slug
+    } else {
+      return NextResponse.json(
+        { error: 'category must be a string, null, or omitted' },
+        { status: 400 }
+      )
+    }
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json(

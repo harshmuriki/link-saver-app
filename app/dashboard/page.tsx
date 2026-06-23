@@ -5,7 +5,7 @@ import { LinkFilters } from '@/components/link-filters'
 import { StatsCards } from '@/components/stats-cards'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { createClient } from '@/lib/supabase/client'
+import { mergeAndSortCategorySlugs } from '@/lib/categories'
 import { Link, LinkCategory, LinkStats, PaginatedResponse } from '@/lib/types'
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
@@ -20,6 +20,9 @@ export default function DashboardPage() {
   const [filter, setFilter] = useState('all')
   const [sortBy, setSortBy] = useState('created_at:desc')
   const [apiKey, setApiKey] = useState<string | null>(null)
+  const [categoryOptions, setCategoryOptions] = useState<string[]>(() =>
+    mergeAndSortCategorySlugs([])
+  )
 
   const fetchApiKey = useCallback(async () => {
     try {
@@ -46,6 +49,20 @@ export default function DashboardPage() {
     }
   }, [apiKey])
 
+  const fetchCategories = useCallback(async () => {
+    if (!apiKey) return
+    try {
+      const res = await fetch(`/api/links/categories?api_key=${apiKey}`)
+      if (res.ok) {
+        const json = await res.json()
+        const slugs: string[] = Array.isArray(json.data) ? json.data : []
+        setCategoryOptions(slugs.length ? slugs : mergeAndSortCategorySlugs([]))
+      }
+    } catch {
+      // Handle error silently
+    }
+  }, [apiKey])
+
   const fetchLinks = useCallback(async () => {
     if (!apiKey) return
     setLoading(true)
@@ -63,8 +80,14 @@ export default function DashboardPage() {
     if (filter === 'unread') params.set('is_read', 'false')
     if (filter === 'read') params.set('is_read', 'true')
     if (filter === 'favorites') params.set('is_favorite', 'true')
-    if (filter === 'general_info') params.set('category', 'general_info')
-    if (filter === 'try_implementing') params.set('category', 'try_implementing')
+    if (
+      filter !== 'all' &&
+      filter !== 'unread' &&
+      filter !== 'read' &&
+      filter !== 'favorites'
+    ) {
+      params.set('category', filter)
+    }
 
     try {
       const res = await fetch(`/api/links?${params}`)
@@ -88,8 +111,9 @@ export default function DashboardPage() {
     if (apiKey) {
       fetchLinks()
       fetchStats()
+      fetchCategories()
     }
-  }, [apiKey, fetchLinks, fetchStats])
+  }, [apiKey, fetchLinks, fetchStats, fetchCategories])
 
   const handleToggleRead = (id: string, isRead: boolean) => {
     if (!apiKey) return
@@ -133,26 +157,46 @@ export default function DashboardPage() {
 
   const handleSetCategory = (id: string, category: LinkCategory) => {
     if (!apiKey) return
-    
-    // Store previous category for rollback
+
     const prevCategory = links.find(l => l.id === id)?.category
-    
-    // Optimistic update - instant UI feedback
-    setLinks(prev => prev.map(link => 
-      link.id === id ? { ...link, category } : link
-    ))
-    
-    // Background API call
+    const originalLink = links.find(l => l.id === id)
+    const originalIndex = links.findIndex(l => l.id === id)
+    const isCategoryFilter =
+      filter !== 'all' &&
+      filter !== 'unread' &&
+      filter !== 'read' &&
+      filter !== 'favorites'
+    const shouldRemove = isCategoryFilter && category !== filter
+
+    if (shouldRemove) {
+      setLinks(prev => prev.filter(link => link.id !== id))
+    } else {
+      setLinks(prev =>
+        prev.map(link => (link.id === id ? { ...link, category } : link))
+      )
+    }
+
     fetch(`/api/links/${id}?api_key=${apiKey}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ category })
-    }).catch(() => {
-      // Revert on error
-      setLinks(prev => prev.map(link => 
-        link.id === id ? { ...link, category: prevCategory } : link
-      ))
+      body: JSON.stringify({ category }),
     })
+      .then(() => fetchCategories())
+      .catch(() => {
+        if (shouldRemove && originalLink) {
+          setLinks(prev => {
+            const next = [...prev]
+            next.splice(originalIndex, 0, originalLink)
+            return next
+          })
+        } else {
+          setLinks(prev =>
+            prev.map(link =>
+              link.id === id ? { ...link, category: prevCategory } : link
+            )
+          )
+        }
+      })
   }
 
   const handleDelete = (id: string) => {
@@ -210,6 +254,7 @@ export default function DashboardPage() {
         onSearchChange={setSearch}
         filter={filter}
         onFilterChange={setFilter}
+        categorySlugs={categoryOptions}
         sortBy={sortBy}
         onSortChange={setSortBy}
         onExport={handleExport}
@@ -236,6 +281,7 @@ export default function DashboardPage() {
               <LinkCard
                 key={link.id}
                 link={link}
+                categoryOptions={categoryOptions}
                 onToggleRead={handleToggleRead}
                 onSetCategory={handleSetCategory}
                 onDelete={handleDelete}

@@ -39,6 +39,9 @@ export function DashboardNav() {
             <Button variant="ghost" size="sm" asChild>
               <Link href="/dashboard/api-key">API Key</Link>
             </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/settings">Settings</Link>
+            </Button>
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

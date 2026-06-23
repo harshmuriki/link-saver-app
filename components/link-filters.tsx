@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { categoryLabel } from '@/lib/categories'
 import { Download, Search, X } from 'lucide-react'
 
 interface LinkFiltersProps {
@@ -16,6 +17,7 @@ interface LinkFiltersProps {
   onSearchChange: (value: string) => void
   filter: string
   onFilterChange: (value: string) => void
+  categorySlugs: string[]
   sortBy: string
   onSortChange: (value: string) => void
   onExport: (format: 'json' | 'csv' | 'html') => void
@@ -26,6 +28,7 @@ export function LinkFilters({
   onSearchChange,
   filter,
   onFilterChange,
+  categorySlugs,
   sortBy,
   onSortChange,
   onExport,
@@ -54,7 +57,7 @@ export function LinkFilters({
 
       <div className="flex gap-2">
         <Select value={filter} onValueChange={onFilterChange}>
-          <SelectTrigger className="w-32">
+          <SelectTrigger className="w-[9.5rem] min-w-[9.5rem]">
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
           <SelectContent>
@@ -62,8 +65,11 @@ export function LinkFilters({
             <SelectItem value="unread">Unread</SelectItem>
             <SelectItem value="read">Read</SelectItem>
             <SelectItem value="favorites">Favorites</SelectItem>
-            <SelectItem value="general_info">Info Links</SelectItem>
-            <SelectItem value="try_implementing">Try It Links</SelectItem>
+            {categorySlugs.map(slug => (
+              <SelectItem key={slug} value={slug}>
+                {categoryLabel(slug)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
