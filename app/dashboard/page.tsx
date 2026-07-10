@@ -135,9 +135,14 @@ export default function DashboardPage() {
       fetchLinks()
       fetchStats()
       fetchCategories()
+    }
+  }, [apiKey, fetchLinks, fetchStats, fetchCategories])
+
+  useEffect(() => {
+    if (apiKey) {
       fetchSnapshot()
     }
-  }, [apiKey, fetchLinks, fetchStats, fetchCategories, fetchSnapshot])
+  }, [apiKey, fetchSnapshot])
 
   // Fallback map: source node canonical_url -> its enrichment, for links
   // whose id has no direct enrichment entry.
