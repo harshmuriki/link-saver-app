@@ -60,7 +60,10 @@ interface SourcePanelData {
 interface HubPanelData {
   kind: 'hub'
   node: GraphNode
+  /** Connected sources currently visible under the active type/category filters. */
   sources: GraphNode[]
+  /** Connected sources that exist but are hidden by the active filters. */
+  hiddenByFilterCount: number
 }
 
 type PanelData = SourcePanelData | HubPanelData
@@ -93,8 +96,8 @@ function ChipGroup({ label, items }: { label: string; items?: string[] }) {
     <div>
       <p className="text-xs text-muted-foreground mb-1">{label}</p>
       <div className="flex flex-wrap gap-1.5">
-        {items.map(item => (
-          <Badge key={item} variant="outline" className="font-normal">
+        {items.map((item, index) => (
+          <Badge key={`${label}-${index}`} variant="outline" className="font-normal">
             {item}
           </Badge>
         ))}
@@ -158,7 +161,9 @@ function HubPanelBody({
   if (data.sources.length === 0) {
     return (
       <p className="text-xs text-muted-foreground/60 italic">
-        No linked sources.
+        {data.hiddenByFilterCount > 0
+          ? `All ${data.hiddenByFilterCount} connected source${data.hiddenByFilterCount === 1 ? '' : 's'} are hidden by the active filters.`
+          : 'No linked sources.'}
       </p>
     )
   }
@@ -200,6 +205,11 @@ function HubPanelBody({
       ))}
       {extra > 0 && (
         <p className="text-xs text-muted-foreground/60 pt-1">+{extra} more</p>
+      )}
+      {data.hiddenByFilterCount > 0 && (
+        <p className="text-xs text-muted-foreground/60 pt-1">
+          +{data.hiddenByFilterCount} hidden by filters
+        </p>
       )}
     </div>
   )
@@ -243,8 +253,9 @@ function NodeDetailsPanel({
           )
         ) : (
           <CardDescription className="text-xs capitalize">
-            {data.node.type} · {data.sources.length} linked source
-            {data.sources.length === 1 ? '' : 's'}
+            {data.node.type} ·{' '}
+            {data.sources.length + data.hiddenByFilterCount} linked source
+            {data.sources.length + data.hiddenByFilterCount === 1 ? '' : 's'}
           </CardDescription>
         )}
       </CardHeader>
@@ -413,6 +424,14 @@ export function MemoryGraph({
     return { nodes: graphNodes, links: graphLinks }
   }, [nodes, edges, visibleTypes, category])
 
+  // ids currently rendered under the active type/category filters — used to
+  // keep the hub panel's connected-source list (and re-select/re-center
+  // targets) in sync with what's actually clickable in the graph.
+  const visibleNodeIds = useMemo(
+    () => new Set(graphData.nodes.map(n => n.id)),
+    [graphData]
+  )
+
   // Selection dropped if the selected node is filtered out.
   useEffect(() => {
     if (selectedId && !graphData.nodes.some(n => n.id === selectedId)) {
@@ -442,13 +461,17 @@ export function MemoryGraph({
       }
     }
 
-    const sources = [...(neighbors.get(selectedId) ?? [])]
+    const connectedSources = [...(neighbors.get(selectedId) ?? [])]
       .map(id => nodeById.get(id))
       .filter((n): n is GraphNode => !!n && n.type === 'source')
-      .sort((a, b) => a.label.localeCompare(b.label))
 
-    return { kind: 'hub', node: raw, sources }
-  }, [selectedId, nodeById, neighbors, enrichment])
+    const sources = connectedSources
+      .filter(n => visibleNodeIds.has(n.id))
+      .sort((a, b) => a.label.localeCompare(b.label))
+    const hiddenByFilterCount = connectedSources.length - sources.length
+
+    return { kind: 'hub', node: raw, sources, hiddenByFilterCount }
+  }, [selectedId, nodeById, neighbors, enrichment, visibleNodeIds])
 
   const toggleType = (type: GraphNodeType) =>
     setVisibleTypes(prev => ({ ...prev, [type]: !prev[type] }))
