@@ -1,12 +1,13 @@
 'use client'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
   categoryLabel,
   isBuiltinCategorySlug,
 } from '@/lib/categories'
-import { Link, LinkCategory } from '@/lib/types'
+import { Link, LinkCategory, LinkEnrichment } from '@/lib/types'
 import {
   BookOpenCheck,
   ExternalLink,
@@ -26,6 +27,10 @@ interface LinkCardProps {
   onToggleRead: (id: string, isRead: boolean) => void
   onSetCategory: (id: string, category: LinkCategory) => void
   onDelete: (id: string) => void
+  /** AI enrichment for this link, when a graph snapshot has processed it. */
+  enrichment?: LinkEnrichment
+  /** Whether a graph snapshot exists at all (even if this link has no enrichment yet). */
+  hasSnapshot?: boolean
 }
 
 export const LinkCard = memo(function LinkCard({
@@ -34,7 +39,11 @@ export const LinkCard = memo(function LinkCard({
   onToggleRead,
   onSetCategory,
   onDelete,
+  enrichment,
+  hasSnapshot,
 }: LinkCardProps) {
+  const summary = enrichment?.summary?.trim()
+  const topics = enrichment?.topics ?? []
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -113,10 +122,29 @@ export const LinkCard = memo(function LinkCard({
                 {link.title || link.url}
                 <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-50" />
               </a>
-              {link.description && (
+              {summary ? (
                 <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                  {link.description}
+                  {summary}
                 </p>
+              ) : hasSnapshot ? (
+                <p className="text-xs text-muted-foreground/60 italic mt-1">
+                  Not yet processed
+                </p>
+              ) : (
+                link.description && (
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                    {link.description}
+                  </p>
+                )
+              )}
+              {topics.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {topics.map(topic => (
+                    <Badge key={topic} variant="outline" className="font-normal">
+                      {topic}
+                    </Badge>
+                  ))}
+                </div>
               )}
               <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
                 {link.is_read && (
