@@ -6,9 +6,17 @@ import { StatsCards } from '@/components/stats-cards'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { mergeAndSortCategorySlugs } from '@/lib/categories'
-import { Link, LinkCategory, LinkStats, PaginatedResponse } from '@/lib/types'
+import { dayHeader, groupByDay } from '@/lib/day-grouping'
+import {
+  GraphSnapshot,
+  Link,
+  LinkCategory,
+  LinkEnrichment,
+  LinkStats,
+  PaginatedResponse,
+} from '@/lib/types'
 import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 export default function DashboardPage() {
   const [links, setLinks] = useState<Link[]>([])
@@ -23,6 +31,8 @@ export default function DashboardPage() {
   const [categoryOptions, setCategoryOptions] = useState<string[]>(() =>
     mergeAndSortCategorySlugs([])
   )
+  const [snapshot, setSnapshot] = useState<GraphSnapshot | null>(null)
+  const [snapshotLoaded, setSnapshotLoaded] = useState(false)
 
   const fetchApiKey = useCallback(async () => {
     try {
@@ -103,6 +113,19 @@ export default function DashboardPage() {
     }
   }, [apiKey, page, search, filter, sortBy])
 
+  const fetchSnapshot = useCallback(async () => {
+    if (!apiKey) return
+    try {
+      const res = await fetch(`/api/graph-snapshot?api_key=${apiKey}`)
+      const json = res.ok ? await res.json() : null
+      setSnapshot((json as { data: GraphSnapshot | null } | null)?.data ?? null)
+    } catch {
+      setSnapshot(null)
+    } finally {
+      setSnapshotLoaded(true)
+    }
+  }, [apiKey])
+
   useEffect(() => {
     fetchApiKey()
   }, [fetchApiKey])
@@ -114,6 +137,42 @@ export default function DashboardPage() {
       fetchCategories()
     }
   }, [apiKey, fetchLinks, fetchStats, fetchCategories])
+
+  useEffect(() => {
+    if (apiKey) {
+      fetchSnapshot()
+    }
+  }, [apiKey, fetchSnapshot])
+
+  // Fallback map: source node canonical_url -> its enrichment, for links
+  // whose id has no direct enrichment entry.
+  const urlEnrichment = useMemo(() => {
+    const map = new Map<string, LinkEnrichment>()
+    if (!snapshot) return map
+    for (const node of snapshot.nodes) {
+      if (node.type !== 'source' || !node.canonical_url) continue
+      const enr =
+        (node.linksaver_id && snapshot.enrichment[node.linksaver_id]) ||
+        snapshot.enrichment[node.id]
+      if (enr) map.set(node.canonical_url, enr)
+    }
+    return map
+  }, [snapshot])
+
+  const getEnrichment = useCallback(
+    (link: Link): LinkEnrichment | undefined => {
+      if (!snapshot) return undefined
+      return snapshot.enrichment[link.id] ?? urlEnrichment.get(link.url)
+    },
+    [snapshot, urlEnrichment]
+  )
+
+  const showNoSnapshotBanner = snapshotLoaded && snapshot === null && links.length > 0
+  const isDayGrouped = sortBy === 'created_at:desc'
+  const dayGroups = useMemo(
+    () => (isDayGrouped ? groupByDay(links) : []),
+    [isDayGrouped, links]
+  )
 
   const handleToggleRead = (id: string, isRead: boolean) => {
     if (!apiKey) return
@@ -260,6 +319,12 @@ export default function DashboardPage() {
         onExport={handleExport}
       />
 
+      {showNoSnapshotBanner && !loading && (
+        <div className="mb-6 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+          Summaries appear after tonight&apos;s sync.
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-4">
           {[...Array(5)].map((_, i) => (
@@ -276,18 +341,52 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <div className="space-y-3">
-            {links.map(link => (
-              <LinkCard
-                key={link.id}
-                link={link}
-                categoryOptions={categoryOptions}
-                onToggleRead={handleToggleRead}
-                onSetCategory={handleSetCategory}
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
+          {isDayGrouped ? (
+            <div className="space-y-8">
+              {dayGroups.map(group => (
+                <section key={group.key}>
+                  <div className="flex items-baseline gap-2 mb-3">
+                    <h2 className="text-lg font-semibold text-foreground">
+                      {dayHeader(group.date)}
+                    </h2>
+                    <span className="text-sm text-muted-foreground">
+                      {group.items.length}{' '}
+                      {group.items.length === 1 ? 'link' : 'links'}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {group.items.map(link => (
+                      <LinkCard
+                        key={link.id}
+                        link={link}
+                        categoryOptions={categoryOptions}
+                        onToggleRead={handleToggleRead}
+                        onSetCategory={handleSetCategory}
+                        onDelete={handleDelete}
+                        enrichment={getEnrichment(link)}
+                        hasSnapshot={snapshot !== null}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {links.map(link => (
+                <LinkCard
+                  key={link.id}
+                  link={link}
+                  categoryOptions={categoryOptions}
+                  onToggleRead={handleToggleRead}
+                  onSetCategory={handleSetCategory}
+                  onDelete={handleDelete}
+                  enrichment={getEnrichment(link)}
+                  hasSnapshot={snapshot !== null}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 1 && (
