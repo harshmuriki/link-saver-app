@@ -35,8 +35,6 @@ interface GraphNodeObject {
   label: string
   category?: string
   url?: string
-  linksaver_id?: string
-  ingested_on?: string
   degree: number
   x?: number
   y?: number
@@ -203,12 +201,16 @@ function HubPanelBody({
           )}
         </div>
       ))}
-      {extra > 0 && (
-        <p className="text-xs text-muted-foreground/60 pt-1">+{extra} more</p>
-      )}
-      {data.hiddenByFilterCount > 0 && (
+      {(extra > 0 || data.hiddenByFilterCount > 0) && (
         <p className="text-xs text-muted-foreground/60 pt-1">
-          +{data.hiddenByFilterCount} hidden by filters
+          {[
+            extra > 0 ? `+${extra} more` : null,
+            data.hiddenByFilterCount > 0
+              ? `${extra > 0 ? '' : '+'}${data.hiddenByFilterCount} hidden by filters`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
       )}
     </div>
@@ -253,9 +255,8 @@ function NodeDetailsPanel({
           )
         ) : (
           <CardDescription className="text-xs capitalize">
-            {data.node.type} ·{' '}
-            {data.sources.length + data.hiddenByFilterCount} linked source
-            {data.sources.length + data.hiddenByFilterCount === 1 ? '' : 's'}
+            {data.node.type} · {data.node.degree ?? 0} linked source
+            {(data.node.degree ?? 0) === 1 ? '' : 's'}
           </CardDescription>
         )}
       </CardHeader>
@@ -414,8 +415,6 @@ export function MemoryGraph({
       label: n.label,
       category: n.category,
       url: n.url,
-      linksaver_id: n.linksaver_id,
-      ingested_on: n.ingested_on,
       degree: n.degree ?? 0,
     }))
     const graphLinks: GraphLinkObject[] = edges
@@ -434,10 +433,10 @@ export function MemoryGraph({
 
   // Selection dropped if the selected node is filtered out.
   useEffect(() => {
-    if (selectedId && !graphData.nodes.some(n => n.id === selectedId)) {
+    if (selectedId && !visibleNodeIds.has(selectedId)) {
       setSelectedId(null)
     }
-  }, [graphData, selectedId])
+  }, [visibleNodeIds, selectedId])
 
   const highlightIds = useMemo(() => {
     if (!selectedId) return null
