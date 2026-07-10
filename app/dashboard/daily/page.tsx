@@ -96,6 +96,10 @@ export default function DailyPage() {
     []
   )
 
+  useEffect(() => {
+    fetchApiKey()
+  }, [fetchApiKey])
+
   // Initial load: newest page of links + snapshot, in parallel.
   useEffect(() => {
     if (!apiKey) return
@@ -130,29 +134,27 @@ export default function DailyPage() {
   const handleLoadOlder = useCallback(async () => {
     if (!apiKey || links.length === 0 || loadingMore) return
     setLoadingMore(true)
-    // Advance the cursor to just before the oldest loaded link so that the
-    // API's inclusive `to` filter never re-returns it (dedupe still guards
-    // the rare case of identical timestamps).
+    // Use the oldest loaded link's exact timestamp as the inclusive `to`
+    // cursor. DB timestamps have sub-millisecond precision, so computing an
+    // "earlier" cursor could skip links sharing the boundary instant; instead
+    // the boundary rows are re-returned and discarded by the id-dedupe below.
     const oldest = links[links.length - 1]
-    const cursor = new Date(
-      new Date(oldest.created_at).getTime() - 1
-    ).toISOString()
 
-    const older = await fetchLinkWindow(apiKey, cursor)
+    const older = await fetchLinkWindow(apiKey, oldest.created_at)
     if (older === null) {
       setError('Failed to load older links.')
       setLoadingMore(false)
       return
     }
-    setLinks(prev => {
-      const seen = new Set(prev.map(l => l.id))
-      const merged = [...prev]
-      for (const l of older) {
-        if (!seen.has(l.id)) merged.push(l)
-      }
-      return merged
-    })
-    setHasMore(older.length === PAGE_SIZE)
+    const seen = new Set(links.map(l => l.id))
+    const fresh = older.filter(l => !seen.has(l.id))
+    if (fresh.length > 0) {
+      setLinks(prev => [...prev, ...fresh])
+    }
+    // A full page normally means more remain — but if every returned row was
+    // already loaded (>PAGE_SIZE links sharing one exact timestamp), the
+    // cursor cannot advance, so stop to avoid an infinite loop.
+    setHasMore(older.length === PAGE_SIZE && fresh.length > 0)
     setLoadingMore(false)
   }, [apiKey, links, loadingMore, fetchLinkWindow])
 
