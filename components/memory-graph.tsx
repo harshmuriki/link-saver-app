@@ -1,6 +1,14 @@
 'use client'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -10,7 +18,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { categoryLabel } from '@/lib/categories'
-import { GraphEdge, GraphNode, GraphNodeType } from '@/lib/types'
+import { GraphEdge, GraphNode, GraphNodeType, LinkEnrichment } from '@/lib/types'
+import { ExternalLink, Globe, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D, {
   ForceGraphMethods,
@@ -26,6 +35,8 @@ interface GraphNodeObject {
   label: string
   category?: string
   url?: string
+  linksaver_id?: string
+  ingested_on?: string
   degree: number
   x?: number
   y?: number
@@ -35,6 +46,217 @@ interface GraphLinkObject {
   source: string | GraphNodeObject
   target: string | GraphNodeObject
   rel: string
+}
+
+// Data shown in the details panel for the currently selected node. Derived
+// lazily from just that one node (plus the shared adjacency map) so it stays
+// cheap regardless of graph size.
+interface SourcePanelData {
+  kind: 'source'
+  node: GraphNode
+  enrichment?: LinkEnrichment
+}
+
+interface HubPanelData {
+  kind: 'hub'
+  node: GraphNode
+  sources: GraphNode[]
+}
+
+type PanelData = SourcePanelData | HubPanelData
+
+const HUB_SOURCE_LIMIT = 30
+
+function domainFromUrl(url?: string): string | undefined {
+  if (!url) return undefined
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return undefined
+  }
+}
+
+function formatIngestedDate(dateString?: string): string | undefined {
+  if (!dateString) return undefined
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return undefined
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function ChipGroup({ label, items }: { label: string; items?: string[] }) {
+  if (!items || items.length === 0) return null
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground mb-1">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map(item => (
+          <Badge key={item} variant="outline" className="font-normal">
+            {item}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SourcePanelBody({ data }: { data: SourcePanelData }) {
+  const { node, enrichment } = data
+  const ingestedDate = formatIngestedDate(node.ingested_on ?? enrichment?.ingested_on)
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {node.category && (
+          <Badge variant="outline" className="font-normal">
+            {categoryLabel(node.category)}
+          </Badge>
+        )}
+        {ingestedDate && (
+          <span className="text-xs text-muted-foreground">{ingestedDate}</span>
+        )}
+      </div>
+      {enrichment?.summary ? (
+        <p className="text-muted-foreground">{enrichment.summary}</p>
+      ) : (
+        <p className="text-xs text-muted-foreground/60 italic">
+          Not yet processed
+        </p>
+      )}
+      {enrichment && (
+        <div className="space-y-2">
+          <ChipGroup label="Topics" items={enrichment.topics} />
+          <ChipGroup label="Concepts" items={enrichment.concepts} />
+          <ChipGroup label="Entities" items={enrichment.entities} />
+        </div>
+      )}
+      {node.url && (
+        <Button
+          type="button"
+          size="sm"
+          className="w-full"
+          onClick={() => window.open(node.url, '_blank', 'noopener')}
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          Open link
+        </Button>
+      )}
+    </>
+  )
+}
+
+function HubPanelBody({
+  data,
+  onSelectSource,
+}: {
+  data: HubPanelData
+  onSelectSource: (id: string) => void
+}) {
+  if (data.sources.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground/60 italic">
+        No linked sources.
+      </p>
+    )
+  }
+
+  const visible = data.sources.slice(0, HUB_SOURCE_LIMIT)
+  const extra = data.sources.length - visible.length
+
+  return (
+    <div className="space-y-0.5">
+      {visible.map(source => (
+        <div
+          key={source.id}
+          role="button"
+          tabIndex={0}
+          onClick={() => onSelectSource(source.id)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onSelectSource(source.id)
+            }
+          }}
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 -mx-2 text-xs hover:bg-accent cursor-pointer"
+        >
+          <span className="flex-1 min-w-0 truncate">{source.label}</span>
+          {source.url && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation()
+                window.open(source.url, '_blank', 'noopener')
+              }}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+              aria-label={`Open ${source.label}`}
+            >
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      ))}
+      {extra > 0 && (
+        <p className="text-xs text-muted-foreground/60 pt-1">+{extra} more</p>
+      )}
+    </div>
+  )
+}
+
+function NodeDetailsPanel({
+  data,
+  onClose,
+  onSelectSource,
+}: {
+  data: PanelData
+  onClose: () => void
+  onSelectSource: (id: string) => void
+}) {
+  const domain = data.kind === 'source' ? domainFromUrl(data.node.url) : undefined
+
+  return (
+    <Card className="absolute top-3 right-3 z-10 w-80 max-h-[calc(100%-1.5rem)] overflow-y-auto py-4 gap-3 shadow-lg">
+      <CardHeader className="px-4 gap-1">
+        <div className="flex items-start justify-between gap-2">
+          <CardTitle className="text-sm leading-snug break-words">
+            {data.node.label}
+          </CardTitle>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="-mt-1 -mr-1 shrink-0"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        {data.kind === 'source' ? (
+          domain && (
+            <CardDescription className="flex items-center gap-1 text-xs">
+              <Globe className="h-3 w-3" />
+              {domain}
+            </CardDescription>
+          )
+        ) : (
+          <CardDescription className="text-xs capitalize">
+            {data.node.type} · {data.sources.length} linked source
+            {data.sources.length === 1 ? '' : 's'}
+          </CardDescription>
+        )}
+      </CardHeader>
+      <CardContent className="px-4 space-y-3 text-sm">
+        {data.kind === 'source' ? (
+          <SourcePanelBody data={data} />
+        ) : (
+          <HubPanelBody data={data} onSelectSource={onSelectSource} />
+        )}
+      </CardContent>
+    </Card>
+  )
 }
 
 const NODE_TYPES: GraphNodeType[] = ['source', 'topic', 'concept', 'entity']
@@ -76,9 +298,11 @@ function nodeVal(n: GraphNodeObject): number {
 export function MemoryGraph({
   nodes,
   edges,
+  enrichment,
 }: {
   nodes: GraphNode[]
   edges: GraphEdge[]
+  enrichment?: Record<string, LinkEnrichment>
 }) {
   const fgRef = useRef<
     ForceGraphMethods<NodeObject<GraphNodeObject>, GraphLinkObject> | undefined
@@ -145,6 +369,14 @@ export function MemoryGraph({
     return map
   }, [edges])
 
+  // id -> full snapshot node, for details-panel lookups (built once per
+  // snapshot, not per click).
+  const nodeById = useMemo(() => {
+    const map = new Map<string, GraphNode>()
+    for (const n of nodes) map.set(n.id, n)
+    return map
+  }, [nodes])
+
   // Categories present on source nodes, for the category filter.
   const categoryOptions = useMemo(() => {
     const set = new Set<string>()
@@ -171,6 +403,8 @@ export function MemoryGraph({
       label: n.label,
       category: n.category,
       url: n.url,
+      linksaver_id: n.linksaver_id,
+      ingested_on: n.ingested_on,
       degree: n.degree ?? 0,
     }))
     const graphLinks: GraphLinkObject[] = edges
@@ -193,19 +427,52 @@ export function MemoryGraph({
     return set
   }, [selectedId, neighbors])
 
+  // Details-panel content for the selected node only — derived lazily so
+  // nothing is precomputed for the rest of the graph.
+  const selectedPanelData = useMemo((): PanelData | null => {
+    if (!selectedId) return null
+    const raw = nodeById.get(selectedId)
+    if (!raw) return null
+
+    if (raw.type === 'source') {
+      return {
+        kind: 'source',
+        node: raw,
+        enrichment: raw.linksaver_id ? enrichment?.[raw.linksaver_id] : undefined,
+      }
+    }
+
+    const sources = [...(neighbors.get(selectedId) ?? [])]
+      .map(id => nodeById.get(id))
+      .filter((n): n is GraphNode => !!n && n.type === 'source')
+      .sort((a, b) => a.label.localeCompare(b.label))
+
+    return { kind: 'hub', node: raw, sources }
+  }, [selectedId, nodeById, neighbors, enrichment])
+
   const toggleType = (type: GraphNodeType) =>
     setVisibleTypes(prev => ({ ...prev, [type]: !prev[type] }))
 
-  const handleNodeClick = useCallback(
-    (node: NodeObject<GraphNodeObject>) => {
-      const n = node as GraphNodeObject
-      if (n.type === 'source') {
-        if (n.url) window.open(n.url, '_blank', 'noopener,noreferrer')
-        return
+  // Any node click toggles that node's selection: opens/updates the details
+  // panel and highlights its neighbors. Clicking the same node again clears
+  // both (same toggle hubs already had).
+  const handleNodeClick = useCallback((node: NodeObject<GraphNodeObject>) => {
+    const n = node as GraphNodeObject
+    setSelectedId(prev => (prev === n.id ? null : n.id))
+  }, [])
+
+  // Used by the hub panel's "connected source" rows: selects that source and
+  // re-centers the view on it, same mechanic as the search box.
+  const selectSource = useCallback(
+    (id: string) => {
+      setSelectedId(id)
+      const match = graphData.nodes.find(n => n.id === id)
+      if (match && fgRef.current && match.x != null && match.y != null) {
+        fgRef.current.centerAt(match.x, match.y, 800)
+        fgRef.current.zoom(4, 800)
       }
-      setSelectedId(prev => (prev === n.id ? null : n.id))
     },
-    []
+    [graphData]
   )
 
   const handleSearch = useCallback(() => {
@@ -368,6 +635,13 @@ export function MemoryGraph({
             onNodeClick={handleNodeClick}
             onBackgroundClick={() => setSelectedId(null)}
             cooldownTicks={100}
+          />
+        )}
+        {selectedPanelData && (
+          <NodeDetailsPanel
+            data={selectedPanelData}
+            onClose={() => setSelectedId(null)}
+            onSelectSource={selectSource}
           />
         )}
       </div>

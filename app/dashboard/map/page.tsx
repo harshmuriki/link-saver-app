@@ -101,7 +101,11 @@ export default function MapPage() {
             </p>
           </div>
         ) : (
-          <MemoryGraph nodes={snapshot.nodes} edges={snapshot.edges} />
+          <MemoryGraph
+            nodes={snapshot.nodes}
+            edges={snapshot.edges}
+            enrichment={snapshot.enrichment}
+          />
         )}
       </div>
     </div>
