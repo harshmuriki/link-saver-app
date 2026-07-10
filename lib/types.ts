@@ -77,7 +77,7 @@ export interface LinkEnrichment {
 export interface GraphSnapshot {
   version: 1
   generated_at: string
-  stats: Record<string, number>
+  stats?: Record<string, number>
   nodes: GraphNode[]
   edges: GraphEdge[]
   enrichment: Record<string, LinkEnrichment>

@@ -8,8 +8,6 @@ CREATE TABLE IF NOT EXISTS public.graph_snapshots (
   UNIQUE (user_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_graph_snapshots_user ON public.graph_snapshots(user_id);
-
 ALTER TABLE public.graph_snapshots ENABLE ROW LEVEL SECURITY;
 
 -- Writes happen via the service-role admin client (bypasses RLS), so only a SELECT policy.
