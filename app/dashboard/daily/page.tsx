@@ -134,6 +134,7 @@ export default function DailyPage() {
   const handleLoadOlder = useCallback(async () => {
     if (!apiKey || links.length === 0 || loadingMore) return
     setLoadingMore(true)
+    setError(null)
     // Use the oldest loaded link's exact timestamp as the inclusive `to`
     // cursor. DB timestamps have sub-millisecond precision, so computing an
     // "earlier" cursor could skip links sharing the boundary instant; instead
