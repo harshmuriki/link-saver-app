@@ -16,8 +16,8 @@ elif [[ -f "${HOME}/anaconda3/etc/profile.d/conda.sh" ]]; then
   # shellcheck disable=SC1091
   source "${HOME}/anaconda3/etc/profile.d/conda.sh"
 else
-  echo "conda not found; add conda to PATH or install Miniconda/Miniforge." >&2
-  exit 1
+  echo "conda not found; running with system PATH." >&2
+  exec "$@"
 fi
 
 conda activate website
