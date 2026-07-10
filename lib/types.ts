@@ -44,3 +44,41 @@ export interface LinkStats {
   links_this_week: number
   top_domains: { domain: string; count: number }[]
 }
+
+export type GraphNodeType = 'source' | 'topic' | 'concept' | 'entity'
+
+export interface GraphNode {
+  id: string
+  type: GraphNodeType
+  label: string
+  category?: string
+  linksaver_id?: string
+  canonical_url?: string
+  url?: string
+  ingested_on?: string
+  degree?: number
+}
+
+export interface GraphEdge {
+  source: string
+  target: string
+  rel: 'topic' | 'concept' | 'entity'
+}
+
+export interface LinkEnrichment {
+  summary: string
+  topics: string[]
+  entities: string[]
+  concepts: string[]
+  category?: string
+  ingested_on?: string
+}
+
+export interface GraphSnapshot {
+  version: 1
+  generated_at: string
+  stats?: Record<string, number>
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  enrichment: Record<string, LinkEnrichment>
+}

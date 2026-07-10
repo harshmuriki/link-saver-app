@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { createClient } from '@/lib/supabase/client'
-import { Key, Link2, LogOut, Settings, User } from 'lucide-react'
+import { CalendarDays, Key, Link2, LogOut, Network, Settings, User } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -35,6 +35,18 @@ export function DashboardNav() {
           <nav className="flex items-center gap-2">
             <Button variant="ghost" size="sm" asChild>
               <Link href="/dashboard">Links</Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/daily" className="flex items-center gap-1.5">
+                <CalendarDays className="h-4 w-4" />
+                Daily
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/map" className="flex items-center gap-1.5">
+                <Network className="h-4 w-4" />
+                Map
+              </Link>
             </Button>
             <Button variant="ghost" size="sm" asChild>
               <Link href="/dashboard/api-key">API Key</Link>
